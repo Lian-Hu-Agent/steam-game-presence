@@ -1,0 +1,17 @@
+[Unit]
+Description=Steam game presence daemon
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# 改成项目实际路径
+WorkingDirectory=%h/steam-game-presence
+ExecStart=/usr/bin/node %h/steam-game-presence/src/index.js
+Restart=on-failure
+RestartSec=10
+StandardInput=null
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=default.target

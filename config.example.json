@@ -1,0 +1,30 @@
+{
+  "pollIntervalMs": 3000,
+  "confirmMs": 5000,
+  "exitGraceMs": 10000,
+  "steam": {
+    "personaState": "online",
+    "machineName": "Steam 状态显示"
+  },
+  "games": [
+    {
+      "name": "原神",
+      "match": ["GenshinImpact.exe", "YuanShen.exe"]
+    },
+    {
+      "name": "崩坏：星穹铁道",
+      "match": ["StarRail.exe"]
+    },
+    {
+      "name": "Minecraft",
+      "match": ["javaw.exe"],
+      "cmdlineRegex": "minecraft|fabric|forge",
+      "exclude": ["MinecraftLauncher.exe"]
+    },
+    {
+      "name": "赛博朋克 2077",
+      "appId": 1091500,
+      "match": ["Cyberpunk2077.exe"]
+    }
+  ]
+}
