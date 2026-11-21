@@ -101,6 +101,18 @@ Proton / Wine 游戏的进程名通常是 exe 文件名（如 `GenshinImpact.exe
 ## 常驻运行（systemd 用户服务）
 
 ```bash
+./install-systemd.sh            # 安装 unit、enable、启动
+./install-systemd.sh --linger   # 顺带开启 linger（未登录图形界面也运行）
+./install-systemd.sh --status   # 看状态 + 最近日志
+./install-systemd.sh --uninstall
+```
+
+脚本会按项目实际位置生成 unit，不用手改路径。检测不到 Steam token 时只写 unit、不启用，避免服务反复重启；先 `npm run login` 再跑一次即可。
+
+<details>
+<summary>手动安装</summary>
+
+```bash
 mkdir -p ~/.config/systemd/user
 cp systemd/steam-game-presence.service ~/.config/systemd/user/
 # 按注释改 WorkingDirectory / ExecStart 里的路径
@@ -108,6 +120,7 @@ systemctl --user daemon-reload
 systemctl --user enable --now steam-game-presence
 journalctl --user -u steam-game-presence -f
 ```
+</details>
 
 开机自启（未登录图形界面也能跑）：
 
@@ -160,6 +173,7 @@ src/presence.js    steam-user 登录与 gamesPlayed 上报
 src/login.js       一次性交互登录，保存 refresh token
 src/config.js      配置加载与校验
 src/token-store.js token 读写（0600）
+install-systemd.sh 一键安装 / 卸载 systemd 用户服务
 config.example.json
 systemd/steam-game-presence.service
 ```
