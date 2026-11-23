@@ -177,3 +177,9 @@ install-systemd.sh 一键安装 / 卸载 systemd 用户服务
 config.example.json
 systemd/steam-game-presence.service
 ```
+
+---
+
+## License
+
+MIT © 2026 Lian-Hu-Agent，详见 [LICENSE](LICENSE)。

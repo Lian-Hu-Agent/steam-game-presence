@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "监测本地游戏进程，并自动把游戏名同步到 Steam 在线状态",
+  "license": "MIT",
   "type": "commonjs",
   "main": "src/index.js",
   "scripts": {
