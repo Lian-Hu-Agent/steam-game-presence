@@ -34,6 +34,7 @@ class SteamPresence extends EventEmitter {
     this.loginTimer = null;
     this.reconnectTimer = null;
     this.reassertTimer = null;
+    this.loginFailures = 0;
     this.stopped = false;
     this.tokenFile = steamCfg.tokenFile;
     this.token = process.env.STEAM_REFRESH_TOKEN || loadToken(this.tokenFile);
@@ -67,6 +68,7 @@ class SteamPresence extends EventEmitter {
       }
 
       this.ready = true;
+      this.loginFailures = 0;
       this._clearLoginTimer();
       if (this.retryTimer) {
         clearTimeout(this.retryTimer);
@@ -167,8 +169,13 @@ class SteamPresence extends EventEmitter {
     this.loginTimer = setTimeout(() => {
       this.loginTimer = null;
       if (this.stopped || this.ready || this.client !== client) return;
-      this.log(`登录 Steam 超时（${Math.round(ms / 1000)} 秒），重建会话…`);
-      this._reconnect();
+      this.loginFailures += 1;
+      const delay = Math.min(60000 * 2 ** (this.loginFailures - 1), 1800000);
+      this.log(
+        `登录 Steam 超时（${Math.round(ms / 1000)} 秒，第 ${this.loginFailures} 次），` +
+          `${Math.round(delay / 1000)} 秒后重建会话；若持续失败请重新 npm run login（可能是 token 失效或 Steam 限流）`,
+      );
+      this._reconnect(delay);
     }, ms);
   }
 
@@ -190,7 +197,7 @@ class SteamPresence extends EventEmitter {
     }
   }
 
-  _reconnect() {
+  _reconnect(delayMs = 2000) {
     if (this.stopped || this.reconnectTimer) return;
     this.ready = false;
     this.lastPayloadKey = null;
@@ -221,7 +228,7 @@ class SteamPresence extends EventEmitter {
       this.reconnectTimer = null;
       if (this.stopped) return;
       this._connect();
-    }, 2000);
+    }, delayMs);
   }
 
   _scheduleRetry() {

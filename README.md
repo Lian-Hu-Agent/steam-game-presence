@@ -142,13 +142,19 @@ loginctl enable-linger $USER
 
 refresh token 失效（改过密码、撤销过授权）。重新 `npm run login`。
 
-**日志停在「正在连接 Steam…」**
+**日志反复出现「登录 Steam 超时」**
 
-新版本有 60 秒登录超时，超时会自动重建会话；旧版本没有这个保护，会一直挂着，重启服务即可：
+说明 Steam 没有响应登录请求，常见原因是 token 失效或连续重试触发了限流。新版本会自动指数退避（1 分钟 → 30 分钟），不要手动反复重启。恢复步骤：
 
 ```bash
-systemctl --user restart steam-game-presence
+systemctl --user stop steam-game-presence
+sleep 60
+cd ~/AUR/steam-game-presence
+npm run login          # 重新拿 token
+systemctl --user start steam-game-presence
 ```
+
+如果 `npm run login` 也卡住，等 15–30 分钟再试，期间不要再重启服务。
 
 **游戏没被识别**
 

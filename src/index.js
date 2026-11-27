@@ -191,7 +191,7 @@ function main() {
     shuttingDown = true;
     log('正在退出…');
     if (presence) presence.stop();
-    setTimeout(() => process.exit(code), 900);
+    setTimeout(() => process.exit(code), 2500);
   }
 
   process.on('SIGINT', () => shutdown(0));
