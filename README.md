@@ -142,9 +142,24 @@ loginctl enable-linger $USER
 
 refresh token 失效（改过密码、撤销过授权）。重新 `npm run login`。
 
+**日志停在「正在连接 Steam…」**
+
+新版本有 60 秒登录超时，超时会自动重建会话；旧版本没有这个保护，会一直挂着，重启服务即可：
+
+```bash
+systemctl --user restart steam-game-presence
+```
+
 **游戏没被识别**
 
 先 `--scan`；没命中就 `ps -eo pid,args | grep -i 游戏` 看真实进程名，填进 `match`。
+
+注意启动器和游戏本体往往不是同一个 exe：
+
+- Wuthering Waves：启动器 `Wuthering Waves.exe`，游戏本体 `Client-Win64-Shipping.exe`
+- StarCraft II：启动器 `StarCraft II.exe`，游戏本体 `SC2_x64.exe`
+
+两个都写进 `match` 最稳。
 
 **状态切换太慢 / 太灵敏**
 

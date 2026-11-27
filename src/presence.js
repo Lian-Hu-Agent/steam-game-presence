@@ -31,6 +31,9 @@ class SteamPresence extends EventEmitter {
     this.lastPayloadKey = null;
     this.wasBlocked = false;
     this.retryTimer = null;
+    this.loginTimer = null;
+    this.reconnectTimer = null;
+    this.reassertTimer = null;
     this.stopped = false;
     this.tokenFile = steamCfg.tokenFile;
     this.token = process.env.STEAM_REFRESH_TOKEN || loadToken(this.tokenFile);
@@ -64,10 +67,12 @@ class SteamPresence extends EventEmitter {
       }
 
       this.ready = true;
+      this._clearLoginTimer();
       if (this.retryTimer) {
         clearTimeout(this.retryTimer);
         this.retryTimer = null;
       }
+      this._startReassert();
       this.lastPayloadKey = null;
       this.emit('ready');
       // 重连后立刻恢复当前游戏
@@ -86,12 +91,17 @@ class SteamPresence extends EventEmitter {
     client.on('disconnected', (eresult, msg) => {
       this.ready = false;
       this.lastPayloadKey = null;
+      this._clearReassert();
       this.log(`与 Steam 断开（${msg || eresult}），等待自动重连…`);
+      // autoRelogin 自己会重连，但如果它也卡住，90 秒后强制重建会话
+      this._armLoginWatchdog(client, 90000);
     });
 
     client.on('error', (err) => {
       this.ready = false;
       this.lastPayloadKey = null;
+      this._clearLoginTimer();
+      this._clearReassert();
       this.log(`Steam 错误：${err.message}`);
 
       const fatal = [
@@ -142,6 +152,76 @@ class SteamPresence extends EventEmitter {
       refreshToken: this.token,
       machineName: this.cfg.machineName || 'Steam 状态显示',
     });
+    this._armLoginWatchdog(client, 60000);
+  }
+
+  _clearLoginTimer() {
+    if (this.loginTimer) {
+      clearTimeout(this.loginTimer);
+      this.loginTimer = null;
+    }
+  }
+
+  _armLoginWatchdog(client, ms) {
+    this._clearLoginTimer();
+    this.loginTimer = setTimeout(() => {
+      this.loginTimer = null;
+      if (this.stopped || this.ready || this.client !== client) return;
+      this.log(`登录 Steam 超时（${Math.round(ms / 1000)} 秒），重建会话…`);
+      this._reconnect();
+    }, ms);
+  }
+
+  _startReassert() {
+    if (this.reassertTimer) return;
+    // Steam 客户端或服务器偶尔会清掉上报状态，每 3 分钟静默重发一次
+    this.reassertTimer = setInterval(() => {
+      if (!this.ready || !this.current) return;
+      this.lastPayloadKey = null;
+      this.setGame(this.current, { quiet: true });
+    }, 180000);
+    this.reassertTimer.unref?.();
+  }
+
+  _clearReassert() {
+    if (this.reassertTimer) {
+      clearInterval(this.reassertTimer);
+      this.reassertTimer = null;
+    }
+  }
+
+  _reconnect() {
+    if (this.stopped || this.reconnectTimer) return;
+    this.ready = false;
+    this.lastPayloadKey = null;
+    this._clearLoginTimer();
+    this._clearReassert();
+
+    const old = this.client;
+    this.client = null;
+    if (old) {
+      try {
+        old.removeAllListeners();
+      } catch {
+        // 忽略
+      }
+      try {
+        old.logOff();
+      } catch {
+        // 忽略
+      }
+      try {
+        old.disconnect?.();
+      } catch {
+        // 忽略
+      }
+    }
+
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      if (this.stopped) return;
+      this._connect();
+    }, 2000);
   }
 
   _scheduleRetry() {
@@ -155,6 +235,7 @@ class SteamPresence extends EventEmitter {
           refreshToken: this.token,
           machineName: this.cfg.machineName || 'Steam 状态显示',
         });
+        this._armLoginWatchdog(this.client, 60000);
       } catch (err) {
         this.log(`重新登录失败：${err.message}`);
         this._scheduleRetry();
@@ -163,7 +244,7 @@ class SteamPresence extends EventEmitter {
   }
 
   // game: { name, appId } 或 null
-  setGame(game) {
+  setGame(game, opts = {}) {
     this.current = game;
     if (!this.ready) return;
 
@@ -180,6 +261,7 @@ class SteamPresence extends EventEmitter {
     this.lastPayloadKey = key;
 
     this.client.gamesPlayed(payload, Boolean(this.cfg.force));
+    if (opts.quiet) return;
     if (game) {
       this.log(`Steam 状态 → 正在玩「${game.name}」`);
     } else {
@@ -189,9 +271,15 @@ class SteamPresence extends EventEmitter {
 
   stop() {
     this.stopped = true;
+    this._clearLoginTimer();
+    this._clearReassert();
     if (this.retryTimer) {
       clearTimeout(this.retryTimer);
       this.retryTimer = null;
+    }
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
     }
     if (!this.client) return;
     try {
